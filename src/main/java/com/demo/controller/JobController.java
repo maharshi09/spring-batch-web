@@ -1,23 +1,20 @@
 package com.demo.controller;
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParameter;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.JobLocator;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.NoSuchJobException;
+import org.springframework.batch.core.launch.NoSuchJobExecutionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -35,7 +32,19 @@ public class JobController {
     @Autowired
     JobLocator locator;
 
-    AtomicInteger jobCount = new AtomicInteger(0);
+    @Autowired
+    JobOperator jobOperator;
+
+    Random random = new Random();
+
+    @GetMapping(path = "/status/{id}")
+    public String getJobExecutionStatus(@PathVariable(name="id") Long id){
+        try {
+            return jobOperator.getSummary(id);
+        }catch (NoSuchJobExecutionException e){
+            return "error";
+        }
+    }
 
     @GetMapping
     public List<String> listJobs(){
@@ -48,12 +57,12 @@ public class JobController {
     public ResponseEntity<String> launchJob(@RequestParam("job")String jobName){
         Job dbJob;
         try {
-            int count = jobCount.incrementAndGet();
+            int count = random.nextInt();
             dbJob = locator.getJob(jobName);
             JobParameters parameters = new JobParametersBuilder().addString("jobNo",Integer.toString(count)).toJobParameters();
-            jobLauncher.run(dbJob,parameters);
+            JobExecution jobExecution = jobLauncher.run(dbJob,parameters);
 
-            return ResponseEntity.ok("Success");
+            return ResponseEntity.ok(jobExecution.toString());
 
         }catch (Exception e){
             ResponseEntity<String> response = ResponseEntity.ok(e.getMessage());
